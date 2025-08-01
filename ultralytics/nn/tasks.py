@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 
 from ultralytics.nn.autobackend import check_class_names
+from .modules.extra_modules.CAConv import CAConv
 from ultralytics.nn.modules import (
     AIFI,
     C1,
@@ -30,6 +31,7 @@ from ultralytics.nn.modules import (
     Bottleneck,
     BottleneckCSP,
     C2f,
+    C2fGhostNetV2,
     C2fAttn,
     C2fCIB,
     C2fPSA,
@@ -1612,6 +1614,7 @@ def parse_model(d, ch, verbose=True):
         {
             Classify,
             Conv,
+            CAConv,
             ConvTranspose,
             GhostConv,
             Bottleneck,
@@ -1626,6 +1629,7 @@ def parse_model(d, ch, verbose=True):
             C1,
             C2,
             C2f,
+            C2fGhostNetV2,
             C3k2,
             RepNCSPELAN4,
             ELAN1,
@@ -1652,6 +1656,7 @@ def parse_model(d, ch, verbose=True):
             C1,
             C2,
             C2f,
+            C2fGhostNetV2,
             C3k2,
             C2fAttn,
             C3,

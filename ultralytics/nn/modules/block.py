@@ -11,6 +11,7 @@ from ultralytics.utils.torch_utils import fuse_conv_and_bn
 
 from .conv import Conv, DWConv, GhostConv, LightConv, RepConv, autopad
 from .transformer import TransformerBlock
+from .extra_modules.GhostNetV2 import GhostBottleneckV2
 
 __all__ = (
     "DFL",
@@ -22,6 +23,7 @@ __all__ = (
     "C2",
     "C3",
     "C2f",
+    "C2fGhostNetV2",
     "C2fAttn",
     "ImagePoolingAttn",
     "ContrastiveHead",
@@ -324,6 +326,42 @@ class C2f(nn.Module):
         y = [y[0], y[1]]
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
+
+
+class C2fGhostNetV2(nn.Module):
+    """
+    C2f variant that uses GhostBottleneckV2 as its internal block,
+    replacing standard Bottleneck blocks from YOLOv8.
+    """
+
+    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = False, g: int = 1, e: float = 0.5):
+        """
+        Args:
+            c1 (int): input channels
+            c2 (int): output channels
+            n (int): number of GhostBottleneckV2 layers
+            shortcut (bool): not used here, kept for compatibility
+            g (int): groups (unused in GhostNetV2)
+            e (float): expansion ratio for intermediate channels
+        """
+        super().__init__()
+        self.c = int(c2 * e)  # intermediate channels
+        self.cv1 = nn.Conv2d(c1, 2 * self.c, kernel_size=1, stride=1, padding=0)
+        self.cv2 = nn.Sequential(
+            nn.Conv2d((2 + n) * self.c, c2, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(c2),
+            nn.ReLU(inplace=True)
+        )
+        self.m = nn.ModuleList([
+            GhostBottleneckV2(self.c, self.c, self.c, stride=1, se_ratio=0.0, layer_id=i + 1)
+            for i in range(n)
+        ])
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = list(self.cv1(x).chunk(2, dim=1))  # split into 2 parts
+        for i in range(len(self.m)):
+            y.append(self.m[i](y[-1]))  # apply GhostBottleneckV2 on last output
+        return self.cv2(torch.cat(y, dim=1))
 
 
 class C3(nn.Module):
